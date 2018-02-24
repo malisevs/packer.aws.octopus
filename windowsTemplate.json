@@ -1,0 +1,65 @@
+{
+  "variables": {
+    "region": "{{region}}",
+    "akey":"{{akeyreplace}}",
+    "skey":"{{skeyreplace}}",
+    "oapi":"{{oapireplace}}",
+    "rmuser":"{{rmuserreplace}}",
+    "rmpass":"{{rmpassreplace}}"
+  },
+  "builders": [
+    {
+      "type": "amazon-ebs",
+      "access_key":"{{ user `akey` }}",
+      "secret_key":"{{ user `skey` }}",
+      "region": "{{ user `region` }}",
+      "instance_type": "t2.micro",
+      "force_deregister": true,
+      "force_delete_snapshot": true,
+      "source_ami_filter": {
+        "filters": {
+          "virtualization-type": "hvm",
+          "name": "Windows_Server-2016-English-Full-Base-*",
+          "root-device-type": "ebs"
+        },
+        "owners": ["123456"],
+        "most_recent": true
+      },
+      "ami_name": "hop-installed-{{isotime \"2006-01-02\"}}",
+      "security_group_id":"id",
+      "user_data_file": "./bootstrap_win.txt",
+      "communicator": "winrm",
+      "winrm_username": "{{ user `rmuser` }}",
+      "winrm_password": "{{ user `rmpass` }}"
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "powershell",
+      "inline": [
+        "Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))",
+        "choco install -y octopusdeploy.tentacle",
+        "choco install -y nxlog",
+        "choco install -y octopustools",
+        "choco install -y nssm"
+      ]
+    },
+    {
+      "type": "file",
+      "source": "./cert.txt",
+      "destination": "C:\\cert.txt"
+    },
+    {
+      "type":"powershell",
+      "scripts": [
+        "./cleanupOctopusEnv.ps1",
+        "./registerTentacle.ps1",
+        "./deployRelease.ps1",
+        "./deregisterTentacle.ps1"
+      ],
+      "environment_vars": [
+        "OAPI={{ user `oapi` }}"
+      ]
+    }
+  ]
+}
